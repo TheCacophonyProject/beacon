@@ -1,0 +1,37 @@
+project_name: beacon
+release:
+  github:
+    owner: TheCacophonyProject
+    name: beacon
+  name_template: '{{.Tag}}'
+builds:
+- goos:
+  - linux
+  goarch:
+  - arm
+  goarm:
+  - "7"
+  main: ./cmd/beacon
+  ldflags: -s -w -X main.version={{.Version}}
+  binary: beacon
+
+nfpms:
+- vendor: The Cacophony Project
+  homepage: http://cacophony.org.nz/
+  maintainer: Cacophony Developers <coredev@cacophony.org.nz>
+  description: Use BLE to send out beacons to other devices
+  license: GPL v3.0
+  file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
+  formats:
+    - deb
+  bindir: /usr/bin
+  contents:
+    - src: _release/beacon.service
+      dst: /etc/systemd/system/beacon.service
+    - src: _release/org.cacophony.beacon.conf
+      dst: /etc/dbus-1/system.d/org.cacophony.beacon.conf
+  scripts:
+    postinstall: "_release/postinstall.sh"
+checksum:
+  name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
+dist: dist

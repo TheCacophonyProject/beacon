@@ -1,0 +1,11 @@
+[Unit]
+Description=Cacophony Beacon Service
+After=multi-user.target network.target
+
+[Service]
+ExecStart=/usr/bin/beacon
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
