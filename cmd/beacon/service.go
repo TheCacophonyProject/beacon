@@ -49,8 +49,8 @@ func (s service) Ping() *dbus.Error {
 	return dbusErr(Ping())
 }
 
-func (s service) RecordingStarted() *dbus.Error {
-	return dbusErr(RecordingStarted())
+func (s service) Recording() *dbus.Error {
+	return dbusErr(Recording())
 }
 
 func (s service) Classification() *dbus.Error {

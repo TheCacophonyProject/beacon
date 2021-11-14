@@ -24,8 +24,8 @@ func Ping() error {
 	return err
 }
 
-func RecordingStarted() error {
-	_, err := dbusCall("RecordingStarted")
+func Recording() error {
+	_, err := dbusCall("Recording")
 	return err
 }
 

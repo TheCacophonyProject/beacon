@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"log"
 	"runtime"
+	"time"
 
 	"github.com/muka/go-bluetooth/api"
 	"github.com/muka/go-bluetooth/bluez/profile/advertising"
@@ -28,14 +29,14 @@ import (
 )
 
 const (
-	PingType             = 0x01
-	RecordingStartedType = 0x02
-	ClassificationType   = 0x03
-	PowerOffType         = 0x04
-	deviceId             = 0xFFFF
-	version              = 0x01
-	ManufactureID        = 0x1212
-	AdapterID            = "hci0"
+	PingType           = 0x01
+	RecordingType      = 0x02
+	ClassificationType = 0x03
+	PowerOffType       = 0x04
+	deviceId           = 0xFFFF
+	version            = 0x01
+	ManufactureID      = 0x1212
+	AdapterID          = "hci0"
 )
 
 func main() {
@@ -60,15 +61,24 @@ func runMain() error {
 }
 
 func Ping() error {
-	return expose(PingType, []byte{}, 30)
+	log.Println("Ping")
+	expose(PingType, []byte{}, 30)
+	return nil
 }
 
-func RecordingStarted() error {
-	return expose(RecordingStartedType, []byte{}, 30)
+func Recording() error {
+	log.Println("Recording")
+	f, err := expose(RecordingType, []byte{}, 10)
+	time.Sleep(10 * time.Second)
+	f()
+	log.Println("asdasd")
+	return err
 }
 
 func Classification(classifications map[byte]byte) error {
-	return expose(ClassificationType, classificationToByteArray(classifications), 30)
+	log.Println("Classification")
+	expose(ClassificationType, classificationToByteArray(classifications), 30)
+	return nil
 }
 
 func classificationToByteArray(classifications map[byte]byte) []byte {
@@ -95,9 +105,11 @@ func classificationToByteArray(classifications map[byte]byte) []byte {
 }
 
 func PowerOff(seconds uint16) error {
+	log.Println("PowerOff")
 	secondsByte := make([]byte, 2)
 	binary.BigEndian.PutUint16(secondsByte, seconds)
-	return expose(PowerOffType, secondsByte, 30)
+	expose(PowerOffType, secondsByte, 30)
+	return nil
 }
 
 func deviceIdInBytes() []byte {
@@ -106,7 +118,7 @@ func deviceIdInBytes() []byte {
 	return id
 }
 
-func expose(dataType byte, data []byte, timeout uint16) error {
+func expose(dataType byte, data []byte, timeout uint16) (func(), error) {
 	d := []byte{version, deviceIdInBytes()[0], deviceIdInBytes()[1], dataType}
 	data = append(d, data...)
 	log.Println(data)
@@ -121,8 +133,12 @@ func expose(dataType byte, data []byte, timeout uint16) error {
 	props := new(advertising.LEAdvertisement1Properties)
 	props.AddManifacturerData(ManufactureID, data)
 	props.Type = advertising.AdvertisementTypeBroadcast
+	props.Timeout = timeout
+	props.DiscoverableTimeout = timeout
+	props.Duration = timeout
 
 	props.Appearance = 0xFFFF // disables it
-	_, err := api.ExposeAdvertisement(AdapterID, props, uint32(timeout))
-	return err
+	//_, err := api.ExposeAdvertisement(AdapterID, props, uint32(timeout))
+
+	return api.ExposeAdvertisement(AdapterID, props, uint32(timeout))
 }
