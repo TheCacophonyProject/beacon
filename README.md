@@ -2,6 +2,8 @@
 
 ## Install
 - Use goreleaser to make a dep package.
+- `sudo apt install bluez bluez-firmware pi-bluetooth` Note a salt update will uninstall these packages.
+- in `/lib/systemd/system/bluetooth.service` change the line `ExecStart=/usr/local/libexec/bluetooth/bluetoothd` to `ExecStart=/usr/local/libexec/bluetooth/bluetoothd --experimental`
 - Comment out `dtoverlay=pi3-disable-bt` in `/boot/config.txt` RPI might need to be restarted after changing this. Note that a salt update will revert this change.
 
 ## Format of beacon
