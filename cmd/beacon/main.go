@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	goconfig "github.com/TheCacophonyProject/go-config"
 	"github.com/muka/go-bluetooth/api"
 	"github.com/muka/go-bluetooth/bluez/profile/advertising"
 	"github.com/snksoft/crc"
@@ -35,12 +36,12 @@ const (
 	RecordingType      = 0x02
 	ClassificationType = 0x03
 	PowerOffType       = 0x04
-	deviceId           = 0xFFFF
 	version            = 0x01
 	ManufactureID      = 0x1212
 	AdapterID          = "hci0"
 )
 
+var deviceId uint16 = 0
 var stopChannel = make(chan bool, 1)
 var done sync.Mutex
 
@@ -57,7 +58,25 @@ type Data struct {
 	Confidence [2]byte
 }
 
+func setDeviceID() {
+	configRW, err := goconfig.New(goconfig.DefaultConfigDir)
+	if err != nil {
+		log.Printf("Cant read device config %v", err)
+		return
+	}
+
+	var deviceConfig goconfig.Device
+	if err := configRW.Unmarshal(goconfig.DeviceKey, &deviceConfig); err != nil {
+		log.Printf("Cant read device config %v", err)
+		return
+	}
+	deviceId = uint16(deviceConfig.ID)
+	log.Printf("Using device id %v", deviceId)
+}
 func runMain() error {
+	log.Println("Reading deviceId")
+	setDeviceID()
+
 	log.Println("Starting Beacon service")
 	if err := startService(); err != nil {
 		return err
@@ -153,6 +172,10 @@ func expose(dataType byte, data []byte, timeout uint16) error {
 	props.Appearance = 0xFFFF // disables it
 	//_, err := api.ExposeAdvertisement(AdapterID, props, uint32(timeout))
 	f, err := api.ExposeAdvertisement(AdapterID, props, uint32(timeout))
+	if err != nil {
+		log.Printf("Error exposing %v", err)
+		return err
+	}
 	go Stop(f)
 	return err
 }

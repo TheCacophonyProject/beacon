@@ -10,7 +10,7 @@ builds:
   goarch:
   - arm
   goarm:
-  - "6"
+  - "7"
   main: ./cmd/beacon
   ldflags: -s -w -X main.version={{.Version}}
   binary: beacon
