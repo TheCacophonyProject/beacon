@@ -53,8 +53,8 @@ func (s service) Recording() *dbus.Error {
 	return dbusErr(Recording())
 }
 
-func (s service) Classification() *dbus.Error {
-	return dbusErr(Classification(map[byte]byte{}))
+func (s service) Classification(classifications map[byte]byte) *dbus.Error {
+	return dbusErr(Classification(classifications))
 }
 
 func (s service) PowerOff(minutes uint16) *dbus.Error {

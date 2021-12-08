@@ -21,6 +21,8 @@ import (
 	"encoding/hex"
 	"log"
 	"runtime"
+	"sort"
+	"sync"
 	"time"
 
 	"github.com/muka/go-bluetooth/api"
@@ -38,6 +40,9 @@ const (
 	ManufactureID      = 0x1212
 	AdapterID          = "hci0"
 )
+
+var stopChannel = make(chan bool, 1)
+var done sync.Mutex
 
 func main() {
 	if err := runMain(); err != nil {
@@ -66,41 +71,48 @@ func Ping() error {
 	return nil
 }
 
+func Stop(stopFunc func()) {
+	done.Lock()
+	for len(stopChannel) > 0 {
+		<-stopChannel
+	}
+	select {
+	case <-stopChannel:
+	case <-time.After(10 * time.Second):
+	}
+	log.Println("Stopping")
+	stopFunc()
+	done.Unlock()
+}
 func Recording() error {
 	log.Println("Recording")
-	f, err := expose(RecordingType, []byte{}, 10)
-	time.Sleep(10 * time.Second)
-	f()
-	log.Println("asdasd")
-	return err
+	return expose(RecordingType, []byte{}, 10)
 }
 
 func Classification(classifications map[byte]byte) error {
 	log.Println("Classification")
-	expose(ClassificationType, classificationToByteArray(classifications), 30)
-	return nil
+	return expose(ClassificationType, classificationToByteArray(classifications), 30)
 }
 
 func classificationToByteArray(classifications map[byte]byte) []byte {
-	data := []byte{}
+	p := make(PairList, len(classifications))
 	i := 0
-	for {
-		if i >= 5 || len(classifications) == 0 {
-			break
-		}
-		var maxKey byte = 0x00
-		var maxCon byte = 0x00
-		for key, con := range classifications {
-			if con >= maxCon {
-				maxKey = key
-				maxCon = con
-			}
-		}
-		data = append(data, maxKey, maxCon)
+	for k, v := range classifications {
+		p[i] = Pair{k, v}
 		i++
-		delete(classifications, maxKey)
 	}
-	data = append([]byte{byte(i)}, data...)
+	sort.Sort(sort.Reverse(p))
+	var maxPredictions int = 5
+	if len(classifications) < 5 {
+		maxPredictions = len(classifications)
+	}
+	data := make([]byte, maxPredictions*2+1, maxPredictions*2+1)
+	data[0] = byte(maxPredictions)
+	for i = 0; i < maxPredictions; i++ {
+		data[(i*2)+1] = p[i].Key
+		data[(i*2)+2] = p[i].Value
+
+	}
 	return data
 }
 
@@ -118,7 +130,8 @@ func deviceIdInBytes() []byte {
 	return id
 }
 
-func expose(dataType byte, data []byte, timeout uint16) (func(), error) {
+func expose(dataType byte, data []byte, timeout uint16) error {
+	stopChannel <- true
 	d := []byte{version, deviceIdInBytes()[0], deviceIdInBytes()[1], dataType}
 	data = append(d, data...)
 	log.Println(data)
@@ -139,6 +152,18 @@ func expose(dataType byte, data []byte, timeout uint16) (func(), error) {
 
 	props.Appearance = 0xFFFF // disables it
 	//_, err := api.ExposeAdvertisement(AdapterID, props, uint32(timeout))
-
-	return api.ExposeAdvertisement(AdapterID, props, uint32(timeout))
+	f, err := api.ExposeAdvertisement(AdapterID, props, uint32(timeout))
+	go Stop(f)
+	return err
 }
+
+type Pair struct {
+	Key   byte
+	Value byte
+}
+
+type PairList []Pair
+
+func (p PairList) Len() int           { return len(p) }
+func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
+func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
