@@ -44,6 +44,7 @@ const (
 var deviceId uint16 = 0
 var stopChannel = make(chan bool, 1)
 var done sync.Mutex
+var exposeLock sync.Mutex
 
 func main() {
 	if err := runMain(); err != nil {
@@ -92,9 +93,7 @@ func Ping() error {
 
 func Stop(stopFunc func()) {
 	done.Lock()
-	for len(stopChannel) > 0 {
-		<-stopChannel
-	}
+
 	select {
 	case <-stopChannel:
 	case <-time.After(10 * time.Second):
@@ -150,7 +149,17 @@ func deviceIdInBytes() []byte {
 }
 
 func expose(dataType byte, data []byte, timeout uint16) error {
+	// only one expose at once
+	exposeLock.Lock()
+	defer exposeLock.Unlock()
 	stopChannel <- true
+	done.Lock()
+	// clear all stops, may happen if nothing was waiting when true was put in ch above
+	//  maybe a better way of doing this??
+	for len(stopChannel) > 0 {
+		<-stopChannel
+	}
+	defer done.Unlock()
 	d := []byte{version, deviceIdInBytes()[0], deviceIdInBytes()[1], dataType}
 	data = append(d, data...)
 	log.Println(data)
